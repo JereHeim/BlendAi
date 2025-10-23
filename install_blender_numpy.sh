@@ -26,13 +26,13 @@ echo "Installing numpy..."
 # Try using Blender's Python with -m pip
 if "$BLENDER_PYTHON" -m pip --version &>/dev/null; then
     echo "Using pip module..."
-    "$BLENDER_PYTHON" -m pip install --upgrade pip
-    "$BLENDER_PYTHON" -m pip install numpy
+    "$BLENDER_PYTHON" -m pip install --upgrade pip --break-system-packages
+    "$BLENDER_PYTHON" -m pip install numpy --break-system-packages
 else
     # Try installing pip first
     echo "Installing pip first..."
     curl -sS https://bootstrap.pypa.io/get-pip.py | "$BLENDER_PYTHON"
-    "$BLENDER_PYTHON" -m pip install numpy
+    "$BLENDER_PYTHON" -m pip install numpy --break-system-packages
 fi
 
 echo ""

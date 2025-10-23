@@ -145,7 +145,10 @@ generate_model() {
     mkdir -p "$output_dir"
     
     # Build command
-    local cmd="$BLENDER_EXECUTABLE --background --python \"$SMART_SCRIPT\" -- --prompt \"$prompt\" --output \"$output_dir\""
+    local cmd="$BLENDER_EXECUTABLE --background --python \"$SMART_SCRIPT\""
+    
+    # Add arguments after --
+    cmd="$cmd -- --prompt \"$prompt\" --output \"$output_dir\""
     
     if [ -n "$description" ]; then
         cmd="$cmd --description \"$description\""

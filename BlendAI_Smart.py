@@ -783,6 +783,14 @@ def main():
     sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
+    # Filter out Blender's arguments and get only our arguments
+    # Blender passes arguments after '--' to the Python script
+    if '--' in sys.argv:
+        # Get arguments after '--'
+        dash_index = sys.argv.index('--')
+        script_args = sys.argv[dash_index + 1:]
+        sys.argv = [sys.argv[0]] + script_args
+    
     if len(sys.argv) > 1:
         main()
     else:

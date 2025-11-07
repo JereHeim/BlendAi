@@ -133,6 +133,16 @@ class SmartBlendAI:
         logger.info(f"Analysis result: {analysis}")
         return analysis
     
+    def _create_procedural_sword(self, prompt: str) -> str:
+        """Create a procedural sword based on prompt analysis"""
+        logger.info(f"Creating procedural sword from prompt: {prompt}")
+        
+        # Analyze prompt for sword type
+        analysis = self._analyze_reference_image(prompt)
+        
+        # Use the reference-guided sword creation with analyzed data
+        return self._create_reference_guided_sword(prompt, analysis)
+    
     def _generate_with_procedural(self, prompt: str, model_type: str) -> Optional[str]:
         """Generate using procedural modeling based on text analysis"""
         logger.info(f"Generating procedural model for: {prompt}")
@@ -238,11 +248,9 @@ class SmartBlendAI:
         
         # Style-specific modifications
         if style == 'curved':
-            # Katana-specific details
-            mod_wave = sword_obj.modifiers.new(name="Edge_Wave", type='WAVE')
-            mod_wave.height = 0.002
-            mod_wave.width = 1.0
-            mod_wave.axis = 'Z'
+            # Katana-specific details - skip wave modifier for compatibility
+            # Just use the bend modifier that was already applied to the blade
+            pass
             
         elif style == 'large':
             # Greatsword-specific details  
@@ -623,7 +631,11 @@ class SmartBlendAI:
             principled.inputs['Base Color'].default_value = (0.8, 0.6, 0.5, 1.0)
             principled.inputs['Metallic'].default_value = 0.0
             principled.inputs['Roughness'].default_value = 0.3
-            principled.inputs['Subsurface'].default_value = 0.1
+            # Subsurface Scattering - check if input exists (changed in Blender 4.0+)
+            if 'Subsurface Weight' in principled.inputs:
+                principled.inputs['Subsurface Weight'].default_value = 0.1
+            elif 'Subsurface' in principled.inputs:
+                principled.inputs['Subsurface'].default_value = 0.1
             
         elif any(word in desc_lower for word in ['stone', 'rock', 'castle', 'building']):
             # Stone material
@@ -665,15 +677,23 @@ class SmartBlendAI:
     def render_smart_preview(self, filename: str = "smart_preview.png") -> bool:
         """Render a preview with smart camera positioning"""
         try:
-            # Position camera intelligently based on generated objects
-            if self.imported_objects:
+            # Ensure we have a camera first
+            camera = bpy.data.objects.get('Camera')
+            if not camera:
+                bpy.ops.object.camera_add()
+                camera = bpy.context.active_object
+                bpy.context.scene.camera = camera
+            
+            # Get all mesh objects in the scene to position camera
+            mesh_objects = [obj for obj in bpy.data.objects if obj.type == 'MESH']
+            
+            if mesh_objects:
                 # Calculate bounding box of all objects
                 all_coords = []
-                for obj in self.imported_objects:
-                    if obj.type == 'MESH':
-                        for vertex in obj.data.vertices:
-                            world_coord = obj.matrix_world @ vertex.co
-                            all_coords.append(world_coord)
+                for obj in mesh_objects:
+                    for vertex in obj.data.vertices:
+                        world_coord = obj.matrix_world @ vertex.co
+                        all_coords.append(world_coord)
                 
                 if all_coords:
                     # Get bounds
@@ -686,19 +706,22 @@ class SmartBlendAI:
                     
                     center = (min_coords + max_coords) / 2
                     size = max_coords - min_coords
-                    distance = max(size) * 2
+                    distance = max(size) * 2.5  # Increase distance for better framing
                     
-                    # Position camera
-                    camera = bpy.data.objects.get('Camera')
-                    if not camera:
-                        bpy.ops.object.camera_add()
-                        camera = bpy.context.active_object
-                    
+                    # Update camera position
                     camera.location = center + Vector((distance, -distance, distance * 0.5))
                     
                     # Point camera at center
                     direction = center - camera.location
                     camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+                else:
+                    # Default camera position if no coords
+                    camera.location = (7, -7, 5)
+                    camera.rotation_euler = (1.1, 0, 0.785)
+            else:
+                # Default camera position if no objects
+                camera.location = (7, -7, 5)
+                camera.rotation_euler = (1.1, 0, 0.785)
             
             # Set up lighting
             light = bpy.data.objects.get('Light')
@@ -717,6 +740,9 @@ class SmartBlendAI:
             scene.render.resolution_y = 1080
             scene.render.engine = 'CYCLES'
             scene.cycles.samples = 64
+            
+            # Disable denoising (not available in all builds)
+            scene.cycles.use_denoising = False
             
             # Render
             bpy.ops.render.render(write_still=True)
